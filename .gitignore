@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.pt
+data/*.h5
+data/*.partial
+runs/
+slurm-*.out
+*.log
+.wandb/
