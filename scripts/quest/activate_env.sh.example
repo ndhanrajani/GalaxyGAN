@@ -1,0 +1,9 @@
+# Copy to activate_env.sh and adjust paths if your site differs:
+#   cp scripts/quest/activate_env.sh.example scripts/quest/activate_env.sh
+#
+# Quest (NU): mamba module + conda env with GPU PyTorch (cu124, etc.)
+
+module purge
+module load mamba/24.3.0
+source /hpc/software/mamba/24.3.0/etc/profile.d/conda.sh
+conda activate galaxygan
