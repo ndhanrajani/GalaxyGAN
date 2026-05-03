@@ -13,23 +13,22 @@
 # Put code + venv on /projects/... (durable). Put the HDF5 + run outputs on /projects/... or
 # /scratch/... per RCDS storage guidance (scratch is for short-lived / high-I/O work).
 
-#SBATCH --account=EDIT_YOUR_SLURM_ACCOUNT    ## e.g. p12345 — from your Quest allocation
+#SBATCH --account=e32706
 #SBATCH --partition=gengpu
 #SBATCH --gres=gpu:1                         ## any GPU; use gpu:a100:1 or gpu:h100:1 if you need a type
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem=32G
-#SBATCH --time=48:00:00                      ## gengpu max 48h; use less for quick tests
+#SBATCH --time=48:00:00                      ## gengpu max 48h (8h hit TIMEOUT before); shorten for smoke tests
 #SBATCH --job-name=galaxygan_cwgan
 #SBATCH --output=slurm-%x-%j.out
-# EDIT: email when the job ends or fails (Slurm sends from the cluster; check spam)
 #SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=EDIT_YOUR_EMAIL@u.northwestern.edu
+#SBATCH --mail-user=NatashaDhanrajani2026@u.northwestern.edu
 
 set -euo pipefail
 
-# EDIT: root of this repo on Quest (clone or rsync the "Galaxy GANS" folder here)
-REPO_ROOT="${REPO_ROOT:-$HOME/Galaxy-GANS}"
+# Default Quest clone path; override before sbatch if needed: export REPO_ROOT=/path/to/GalaxyGAN
+REPO_ROOT="${REPO_ROOT:-/projects/e32706/ahh2048/GalaxyGAN}"
 
 # EDIT: where Galaxy10_DECals.h5 lives (download once; Zenodo ~2.54 GB)
 export GALAXY10_H5="${GALAXY10_H5:-$REPO_ROOT/data/Galaxy10_DECals.h5}"
