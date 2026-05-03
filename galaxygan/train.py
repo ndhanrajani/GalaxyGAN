@@ -47,6 +47,9 @@ def save_samples(
 def train(args: argparse.Namespace) -> None:
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
+    if device.type == "cuda":
+        # Fixed 69×69 conv sizes: autotune helps; avoids leaving GPU idle while NFS was the bottleneck.
+        torch.backends.cudnn.benchmark = True
 
     if args.preload:
         print(

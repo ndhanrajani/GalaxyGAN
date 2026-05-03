@@ -61,6 +61,19 @@ if [[ ! -f "$GALAXY10_H5" ]]; then
   exit 1
 fi
 
+# One copy to node-local disk (when Slurm provides it) so preload + training do not hammer /projects NFS.
+# Skip with: export SKIP_H5_STAGE=1
+_LOCAL_TMP="${SLURM_TMPDIR:-${TMPDIR:-}}"
+if [[ -z "${SKIP_H5_STAGE:-}" && -n "$_LOCAL_TMP" && -d "$_LOCAL_TMP" ]]; then
+  _STAGED="$_LOCAL_TMP/Galaxy10_DECals_job${SLURM_JOB_ID:-$$}.h5"
+  echo "Staging HDF5 to node-local temp: $_STAGED"
+  cp -f "$GALAXY10_H5" "$_STAGED"
+  export GALAXY10_H5="$_STAGED"
+  echo "GALAXY10_H5 -> $GALAXY10_H5"
+fi
+
+export PYTHONUNBUFFERED=1
+
 # Training (add --wandb after `wandb login` on Quest if you use W&B)
 # After a TIMEOUT: reuse the same run dir and pass the latest checkpoint, e.g.
 #   export OUT=$REPO_ROOT/runs/cwgan_gp_7037508
