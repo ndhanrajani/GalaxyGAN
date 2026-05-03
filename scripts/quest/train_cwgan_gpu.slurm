@@ -22,6 +22,9 @@
 #SBATCH --time=08:00:00                      ## max 48h on gengpu; shorten if you only need a smoke test
 #SBATCH --job-name=galaxygan_cwgan
 #SBATCH --output=slurm-%x-%j.out
+# EDIT: email when the job ends or fails (Slurm sends from the cluster; check spam)
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=EDIT_YOUR_EMAIL@u.northwestern.edu
 
 set -euo pipefail
 
