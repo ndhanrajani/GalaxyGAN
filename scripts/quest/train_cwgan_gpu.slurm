@@ -19,7 +19,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem=32G
-#SBATCH --time=08:00:00                      ## max 48h on gengpu; shorten if you only need a smoke test
+#SBATCH --time=48:00:00                      ## gengpu max 48h; use less for quick tests
 #SBATCH --job-name=galaxygan_cwgan
 #SBATCH --output=slurm-%x-%j.out
 # EDIT: email when the job ends or fails (Slurm sends from the cluster; check spam)
@@ -62,10 +62,21 @@ if [[ ! -f "$GALAXY10_H5" ]]; then
 fi
 
 # Training (add --wandb after `wandb login` on Quest if you use W&B)
+# After a TIMEOUT: reuse the same run dir and pass the latest checkpoint, e.g.
+#   export OUT=$REPO_ROOT/runs/cwgan_gp_7037508
+#   export RESUME=$OUT/checkpoint_epoch0042.pt
+#   sbatch scripts/quest/train_cwgan_gpu.slurm
 OUT="${OUT:-$REPO_ROOT/runs/cwgan_gp_${SLURM_JOB_ID:-local}}"
+extra=()
+if [[ -n "${RESUME:-}" ]]; then
+  extra+=(--resume "$RESUME")
+fi
+# --preload: one slower read from HDF5, then epochs are GPU-bound (important on /projects NFS).
 python3 -m galaxygan.train \
   --epochs "${EPOCHS:-50}" \
   --batch-size "${BATCH_SIZE:-64}" \
-  --out "$OUT"
+  --preload \
+  --out "$OUT" \
+  "${extra[@]}"
 
 echo "Done. Outputs under $OUT"

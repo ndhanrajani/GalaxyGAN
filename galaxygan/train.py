@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import random
+import time
 from pathlib import Path
 
 import numpy as np
@@ -47,7 +48,14 @@ def train(args: argparse.Namespace) -> None:
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
 
-    train_ds = Galaxy10DECaLS(split="train", target_size=args.image_size)
+    if args.preload:
+        print(
+            "Preloading training images into RAM (one pass from HDF5; then epochs avoid NFS).",
+            flush=True,
+        )
+    train_ds = Galaxy10DECaLS(split="train", target_size=args.image_size, preload=args.preload)
+    if args.preload:
+        print("Preload finished.", flush=True)
     loader = DataLoader(
         train_ds,
         batch_size=args.batch_size,
@@ -66,14 +74,38 @@ def train(args: argparse.Namespace) -> None:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
+    start_epoch = 1
+    if args.resume:
+        resume_path = Path(args.resume)
+        if not resume_path.is_file():
+            raise FileNotFoundError(f"--resume checkpoint not found: {resume_path}")
+        ckpt_obj = torch.load(resume_path, map_location=device, weights_only=False)
+        G.load_state_dict(ckpt_obj["G"])
+        D.load_state_dict(ckpt_obj["D"])
+        done_epoch = int(ckpt_obj["epoch"])
+        start_epoch = done_epoch + 1
+        print(
+            f"Resumed from {resume_path} (finished epoch {done_epoch}); "
+            f"training epochs {start_epoch}..{args.epochs}",
+            flush=True,
+        )
+
+    if start_epoch > args.epochs:
+        print(f"Nothing to do: last checkpoint epoch {start_epoch - 1} >= --epochs {args.epochs}.", flush=True)
+        train_ds.close()
+        return
+
     wandb_run = None
     if args.wandb:
         import wandb
 
         wandb_run = wandb.init(project=args.wandb_project, config=vars(args))
 
-    global_step = 0
-    for epoch in range(1, args.epochs + 1):
+    n_batches = len(loader)
+    global_step = (start_epoch - 1) * n_batches
+
+    for epoch in range(start_epoch, args.epochs + 1):
+        t_epoch = time.perf_counter()
         for real, y in loader:
             real = real.to(device, non_blocking=True)
             y = y.to(device, non_blocking=True)
@@ -127,6 +159,11 @@ def train(args: argparse.Namespace) -> None:
         }
         torch.save(ckpt, out / f"checkpoint_epoch{epoch:04d}.pt")
         save_samples(G, out / f"samples_epoch{epoch:04d}.png", device, args.z_dim, list(range(10)))
+        epoch_sec = time.perf_counter() - t_epoch
+        print(
+            f"epoch {epoch}/{args.epochs} completed in {epoch_sec:.1f}s ({epoch_sec / 60.0:.2f} min)",
+            flush=True,
+        )
 
         if wandb_run is not None:
             wandb.log({"epoch": epoch}, step=global_step)
@@ -147,6 +184,17 @@ def main() -> None:
     p.add_argument("--image-size", type=int, default=69)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--out", type=str, default="runs/cwgan_gp")
+    p.add_argument(
+        "--resume",
+        type=str,
+        default="",
+        help="Path to checkpoint_epochXXXX.pt; loads G/D and continues from the next epoch.",
+    )
+    p.add_argument(
+        "--preload",
+        action="store_true",
+        help="Load the full train split into RAM once (~1–2 GB at 69²); much faster on slow/shared storage.",
+    )
     p.add_argument("--cpu", action="store_true")
     p.add_argument("--wandb", action="store_true")
     p.add_argument("--wandb-project", type=str, default="galaxygan")
