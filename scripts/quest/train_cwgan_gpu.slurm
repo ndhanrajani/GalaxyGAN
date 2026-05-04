@@ -12,6 +12,9 @@
 #
 # Put code + venv on /projects/... (durable). Put the HDF5 + run outputs on /projects/... or
 # /scratch/... per RCDS storage guidance (scratch is for short-lived / high-I/O work).
+#
+# PyTorch must match Quest GPU drivers: e.g. torch 2.6.x +cu124 worked; +cu130 can fail with
+# "driver is too old" and cuda.is_available() == False. Reinstall from pytorch.org cu124 wheels.
 
 #SBATCH --account=e32706
 #SBATCH --partition=gengpu
@@ -104,6 +107,11 @@ ncargs=()
 if [[ -n "${N_CRITIC:-}" ]]; then
   ncargs+=(--n-critic "$N_CRITIC")
 fi
+# Optional: export NUM_WORKERS=0 to force main-thread loading; default in train is auto (4 with --preload).
+nwargs=()
+if [[ -n "${NUM_WORKERS:-}" ]]; then
+  nwargs+=(--num-workers "$NUM_WORKERS")
+fi
 # --preload: one slower read from HDF5, then epochs are GPU-bound (important on /projects NFS).
 python3 -m galaxygan.train \
   --epochs "${EPOCHS:-50}" \
@@ -111,6 +119,7 @@ python3 -m galaxygan.train \
   --preload \
   --out "$OUT" \
   "${ncargs[@]}" \
+  "${nwargs[@]}" \
   "${extra[@]}"
 
 echo "Done. Outputs under $OUT"

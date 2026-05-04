@@ -67,11 +67,27 @@ def train(args: argparse.Namespace) -> None:
     train_ds = Galaxy10DECaLS(split="train", target_size=args.image_size, preload=args.preload)
     if args.preload:
         print("Preload finished.", flush=True)
+
+    if args.num_workers < 0:
+        num_workers = 4 if args.preload else 0
+    else:
+        num_workers = args.num_workers
+    if num_workers > 0 and not args.preload:
+        raise SystemExit(
+            "ERROR: --num-workers > 0 requires --preload (HDF5 is not fork-safe while the file is open)."
+        )
+    persistent_workers = bool(num_workers > 0 and args.preload)
+    print(
+        f"DataLoader num_workers={num_workers} persistent_workers={persistent_workers}",
+        flush=True,
+    )
+
     loader = DataLoader(
         train_ds,
         batch_size=args.batch_size,
         shuffle=True,
-        num_workers=0,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
         pin_memory=device.type == "cuda",
         drop_last=True,
     )
@@ -205,6 +221,12 @@ def main() -> None:
         "--preload",
         action="store_true",
         help="Load the full train split into RAM once (~1–2 GB at 69²); much faster on slow/shared storage.",
+    )
+    p.add_argument(
+        "--num-workers",
+        type=int,
+        default=-1,
+        help="DataLoader workers: -1 auto (4 if --preload else 0). >0 only with --preload.",
     )
     p.add_argument("--cpu", action="store_true")
     p.add_argument("--wandb", action="store_true")
