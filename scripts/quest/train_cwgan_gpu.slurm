@@ -52,13 +52,29 @@ cd "$REPO_ROOT"
 echo "PWD=$(pwd)"
 echo "HOST=$(hostname)"
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}"
-python3 -c "import torch; print('torch', torch.__version__, 'cuda?', torch.cuda.is_available())" || true
+python3 - <<'PY'
+import sys
+import torch
+
+print("torch:", torch.__version__)
+print("cuda available:", torch.cuda.is_available())
+if torch.cuda.is_available():
+    print("gpu:", torch.cuda.get_device_name(0))
+else:
+    print(
+        "ERROR: CUDA is not available in this job (CPU-only PyTorch or driver/runtime issue).",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+PY
 
 if [[ ! -f "$GALAXY10_H5" ]]; then
   echo "ERROR: GALAXY10_H5 not found: $GALAXY10_H5"
   echo "Download with: bash scripts/download_galaxy10.sh (from repo) or place the file and set GALAXY10_H5."
   exit 1
 fi
+
+echo "SLURM_TMPDIR=${SLURM_TMPDIR:-<unset>} TMPDIR=${TMPDIR:-<unset>}"
 
 # One copy to node-local disk (when Slurm provides it) so preload + training do not hammer /projects NFS.
 # Skip with: export SKIP_H5_STAGE=1
@@ -83,12 +99,18 @@ extra=()
 if [[ -n "${RESUME:-}" ]]; then
   extra+=(--resume "$RESUME")
 fi
+# Optional: export N_CRITIC=1 for faster smoke tests (default in train.py is 5 for WGAN-GP).
+ncargs=()
+if [[ -n "${N_CRITIC:-}" ]]; then
+  ncargs+=(--n-critic "$N_CRITIC")
+fi
 # --preload: one slower read from HDF5, then epochs are GPU-bound (important on /projects NFS).
 python3 -m galaxygan.train \
   --epochs "${EPOCHS:-50}" \
   --batch-size "${BATCH_SIZE:-64}" \
   --preload \
   --out "$OUT" \
+  "${ncargs[@]}" \
   "${extra[@]}"
 
 echo "Done. Outputs under $OUT"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import random
 import time
 from pathlib import Path
@@ -47,9 +48,16 @@ def save_samples(
 def train(args: argparse.Namespace) -> None:
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
+    print(f"Training device: {device}", flush=True)
     if device.type == "cuda":
-        # Fixed 69×69 conv sizes: autotune helps; avoids leaving GPU idle while NFS was the bottleneck.
+        print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
+        # Fixed 69×69 conv sizes: autotune helps on CUDA.
         torch.backends.cudnn.benchmark = True
+    elif os.environ.get("SLURM_JOB_ID") and not args.cpu:
+        raise SystemExit(
+            "ERROR: CUDA is not available in this Slurm job and --cpu was not set. "
+            "Install a CUDA build of PyTorch in the job environment, or pass --cpu for intentional CPU runs."
+        )
 
     if args.preload:
         print(
