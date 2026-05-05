@@ -92,6 +92,8 @@ fi
 
 export PYTHONUNBUFFERED=1
 
+echo "Train settings: EPOCHS=${EPOCHS:-50} N_CRITIC=${N_CRITIC:-} LR=${LR:-} RESUME=${RESUME:-} OUT=$OUT"
+
 # Training (add --wandb after `wandb login` on Quest if you use W&B)
 # Fresh ablation example: export N_CRITIC=3 LR=1e-4 EPOCHS=200 OUT=$REPO_ROOT/runs/cwgan_nc3; unset RESUME; sbatch ...
 # After a TIMEOUT: reuse the same run dir and pass the latest checkpoint, e.g.
