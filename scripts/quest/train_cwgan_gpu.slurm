@@ -93,6 +93,7 @@ fi
 export PYTHONUNBUFFERED=1
 
 # Training (add --wandb after `wandb login` on Quest if you use W&B)
+# Fresh ablation example: export N_CRITIC=3 LR=1e-4 EPOCHS=200 OUT=$REPO_ROOT/runs/cwgan_nc3; unset RESUME; sbatch ...
 # After a TIMEOUT: reuse the same run dir and pass the latest checkpoint, e.g.
 #   export OUT=$REPO_ROOT/runs/cwgan_gp_7037508
 #   export RESUME=$OUT/checkpoint_epoch0042.pt
@@ -112,6 +113,11 @@ nwargs=()
 if [[ -n "${NUM_WORKERS:-}" ]]; then
   nwargs+=(--num-workers "$NUM_WORKERS")
 fi
+# Optional: export LR=1e-4 (default in train.py); set only if you want a non-default learning rate.
+lrargs=()
+if [[ -n "${LR:-}" ]]; then
+  lrargs+=(--lr "$LR")
+fi
 # --preload: one slower read from HDF5, then epochs are GPU-bound (important on /projects NFS).
 python3 -m galaxygan.train \
   --epochs "${EPOCHS:-50}" \
@@ -120,6 +126,7 @@ python3 -m galaxygan.train \
   --out "$OUT" \
   "${ncargs[@]}" \
   "${nwargs[@]}" \
+  "${lrargs[@]}" \
   "${extra[@]}"
 
 echo "Done. Outputs under $OUT"
