@@ -32,3 +32,10 @@ Then open the URL shown in your terminal (default `http://127.0.0.1:7860`).
 - `--host 0.0.0.0` to bind externally
 - `--port 7861` to change the port
 - `--share` to request a Gradio share link
+
+On shared clusters, if Gradio errors on `/tmp`, set writable dirs first, e.g.  
+`export TMPDIR=$HOME/.tmp GRADIO_TEMP_DIR=$HOME/.tmp/gradio XDG_CACHE_HOME=$HOME/.cache`.
+
+## Sample figures (in repo)
+
+Curated PNGs for write-ups and grading: see **[`docs/samples/README.md`](docs/samples/README.md)**.
