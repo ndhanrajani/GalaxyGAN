@@ -26,7 +26,6 @@ from torch.utils.data import Dataset
 from torchvision.transforms import functional as TF
 
 
-# Names from https://astronn.readthedocs.io/en/latest/galaxy10.html
 CLASS_NAMES: tuple[str, ...] = (
     "Disturbed",
     "Merging",
@@ -140,14 +139,13 @@ class Galaxy10DECaLS(Dataset):
             return self._preload_images[i], self._preload_labels[i]
 
         j = int(self._indices[i])
-        # h5py slice: (H, W, C) uint8 or float depending on file
         x = np.asarray(self._images[j])
         if x.dtype != np.float32:
             x = x.astype(np.float32) / 255.0
         else:
             x = np.clip(x, 0.0, 1.0)
 
-        t = torch.from_numpy(x).permute(2, 0, 1)  # CHW
+        t = torch.from_numpy(x).permute(2, 0, 1)
         if self.target_size is not None and t.shape[-1] != self.target_size:
             t = TF.resize(t, [self.target_size, self.target_size], antialias=True)
         t = t * 2.0 - 1.0

@@ -1,20 +1,8 @@
 #!/bin/bash
 # GalaxyGAN training on Northwestern Quest (GPU batch job).
 #
-# Docs:
-#   - Quest intro: https://rcdsdocs.it.northwestern.edu/start/quest/quest-intro.html
-#   - Slurm:       https://rcdsdocs.it.northwestern.edu/systems/quest/user-guide/slurm/slurm.html
-#   - GPUs:        https://rcdsdocs.it.northwestern.edu/systems/quest/user-guide/gpu/gpu.html
-#   - Modules:     https://rcdsdocs.it.northwestern.edu/systems/quest/user-guide/modules/modules.html
-#
-# BEFORE FIRST RUN — edit the lines marked EDIT below, then:
+# BEFORE FIRST RUN:
 #   sbatch scripts/quest/train_cwgan_gpu.slurm
-#
-# Put code + venv on /projects/... (durable). Put the HDF5 + run outputs on /projects/... or
-# /scratch/... per RCDS storage guidance (scratch is for short-lived / high-I/O work).
-#
-# PyTorch must match Quest GPU drivers: e.g. torch 2.6.x +cu124 worked; +cu130 can fail with
-# "driver is too old" and cuda.is_available() == False. Reinstall from pytorch.org cu124 wheels.
 
 #SBATCH --account=e32706
 #SBATCH --partition=gengpu
@@ -30,21 +18,14 @@
 
 set -euo pipefail
 
-# Default Quest clone path; override before sbatch if needed: export REPO_ROOT=/path/to/GalaxyGAN
 REPO_ROOT="${REPO_ROOT:-/projects/e32706/ahh2048/GalaxyGAN}"
 
-# EDIT: where Galaxy10_DECals.h5 lives (download once; Zenodo ~2.54 GB)
 export GALAXY10_H5="${GALAXY10_H5:-$REPO_ROOT/data/Galaxy10_DECals.h5}"
 
-# EDIT: how to activate the Python env that has torch (see RCDS conda/mamba tutorial).
-# Example after `ssh` to Quest:
-#   module purge && module load mamba/24.3.0 && source "$HOME/mambaforge/etc/profile.d/conda.sh" && mamba activate galaxygan
-# Put the same activation in scripts/quest/activate_env.sh (sourced here) or export ACTIVATE_CMD before sbatch.
 module purge
 if [[ -n "${ACTIVATE_CMD:-}" ]]; then
   eval "$ACTIVATE_CMD"
 elif [[ -f "$REPO_ROOT/scripts/quest/activate_env.sh" ]]; then
-  # shellcheck source=/dev/null
   source "$REPO_ROOT/scripts/quest/activate_env.sh"
 else
   echo "ERROR: Set ACTIVATE_CMD or create $REPO_ROOT/scripts/quest/activate_env.sh"
@@ -79,8 +60,6 @@ fi
 
 echo "SLURM_TMPDIR=${SLURM_TMPDIR:-<unset>} TMPDIR=${TMPDIR:-<unset>}"
 
-# One copy to node-local disk (when Slurm provides it) so preload + training do not hammer /projects NFS.
-# Skip with: export SKIP_H5_STAGE=1
 _LOCAL_TMP="${SLURM_TMPDIR:-${TMPDIR:-}}"
 if [[ -z "${SKIP_H5_STAGE:-}" && -n "$_LOCAL_TMP" && -d "$_LOCAL_TMP" ]]; then
   _STAGED="$_LOCAL_TMP/Galaxy10_DECals_job${SLURM_JOB_ID:-$$}.h5"
@@ -94,33 +73,23 @@ export PYTHONUNBUFFERED=1
 
 echo "Train settings: EPOCHS=${EPOCHS:-50} N_CRITIC=${N_CRITIC:-} LR=${LR:-} RESUME=${RESUME:-} OUT=$OUT"
 
-# Training (add --wandb after `wandb login` on Quest if you use W&B)
-# Fresh ablation example: export N_CRITIC=3 LR=1e-4 EPOCHS=200 OUT=$REPO_ROOT/runs/cwgan_nc3; unset RESUME; sbatch ...
-# After a TIMEOUT: reuse the same run dir and pass the latest checkpoint, e.g.
-#   export OUT=$REPO_ROOT/runs/cwgan_gp_7037508
-#   export RESUME=$OUT/checkpoint_epoch0042.pt
-#   sbatch scripts/quest/train_cwgan_gpu.slurm
 OUT="${OUT:-$REPO_ROOT/runs/cwgan_gp_${SLURM_JOB_ID:-local}}"
 extra=()
 if [[ -n "${RESUME:-}" ]]; then
   extra+=(--resume "$RESUME")
 fi
-# Optional: export N_CRITIC=1 for faster smoke tests (default in train.py is 5 for WGAN-GP).
 ncargs=()
 if [[ -n "${N_CRITIC:-}" ]]; then
   ncargs+=(--n-critic "$N_CRITIC")
 fi
-# Optional: export NUM_WORKERS=0 to force main-thread loading; default in train is auto (4 with --preload).
 nwargs=()
 if [[ -n "${NUM_WORKERS:-}" ]]; then
   nwargs+=(--num-workers "$NUM_WORKERS")
 fi
-# Optional: export LR=1e-4 (default in train.py); set only if you want a non-default learning rate.
 lrargs=()
 if [[ -n "${LR:-}" ]]; then
   lrargs+=(--lr "$LR")
 fi
-# --preload: one slower read from HDF5, then epochs are GPU-bound (important on /projects NFS).
 python3 -m galaxygan.train \
   --epochs "${EPOCHS:-50}" \
   --batch-size "${BATCH_SIZE:-64}" \

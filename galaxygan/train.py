@@ -51,7 +51,6 @@ def train(args: argparse.Namespace) -> None:
     print(f"Training device: {device}", flush=True)
     if device.type == "cuda":
         print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
-        # Fixed 69×69 conv sizes: autotune helps on CUDA.
         torch.backends.cudnn.benchmark = True
     elif os.environ.get("SLURM_JOB_ID") and not args.cpu:
         raise SystemExit(
@@ -138,7 +137,6 @@ def train(args: argparse.Namespace) -> None:
             y = y.to(device, non_blocking=True)
             b = real.size(0)
 
-            # ----- Critic -----
             loss_d_acc = 0.0
             gp_acc = 0.0
             for _ in range(args.n_critic):
@@ -158,7 +156,6 @@ def train(args: argparse.Namespace) -> None:
             loss_d_mean = loss_d_acc / args.n_critic
             gp_mean = gp_acc / args.n_critic
 
-            # ----- Generator -----
             z = torch.randn(b, args.z_dim, device=device)
             gen = G(z, y)
             loss_g = -D(gen, y).mean()

@@ -23,7 +23,6 @@ class Generator(nn.Module):
         self.z_dim = z_dim
         self.out_size = out_size
         self.embed = nn.Embedding(num_classes, embed_dim)
-        # DCGAN-style stack ending at 64×64, then resize to out_size (non-power-of-two friendly).
         self.fc = nn.Linear(z_dim + embed_dim, ngf * 8 * 4 * 4)
         self.conv = nn.Sequential(
             nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1),
